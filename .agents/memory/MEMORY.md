@@ -1,0 +1,1 @@
+- [Auth system design](auth-system.md) — Clerk auth (Google + email/password), JIT DB provisioning, session-less

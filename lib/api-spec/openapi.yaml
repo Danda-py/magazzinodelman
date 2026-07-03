@@ -1,0 +1,855 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification for Il magazzino del man
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication
+  - name: products
+    description: Product catalog
+  - name: proposals
+    description: Item proposals from public
+  - name: chat
+    description: Proposal chat messages
+  - name: checkout
+    description: Simulated Stripe checkout
+  - name: financial
+    description: Financial ERP data
+  - name: cms
+    description: CMS content management
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List products with optional filters
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+        - in: query
+          name: condition
+          schema:
+            type: string
+            enum: [new_with_tags, like_new, used]
+        - in: query
+          name: brand
+          schema:
+            type: string
+        - in: query
+          name: color
+          schema:
+            type: string
+        - in: query
+          name: minPrice
+          schema:
+            type: number
+        - in: query
+          name: maxPrice
+          schema:
+            type: number
+        - in: query
+          name: inStock
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a new product (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Created product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a single product
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update a product (admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      summary: Delete a product (admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /products/stats/summary:
+    get:
+      operationId: getProductSummary
+      tags: [products]
+      summary: Get product inventory stats
+      responses:
+        "200":
+          description: Product inventory summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductSummary"
+
+  /proposals:
+    get:
+      operationId: listProposals
+      tags: [proposals]
+      summary: List all item proposals (admin only)
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, accepted, rejected]
+      responses:
+        "200":
+          description: List of proposals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Proposal"
+    post:
+      operationId: createProposal
+      tags: [proposals]
+      summary: Submit a new item proposal (public)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalInput"
+      responses:
+        "201":
+          description: Created proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+
+  /proposals/{id}:
+    get:
+      operationId: getProposal
+      tags: [proposals]
+      summary: Get a single proposal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+
+  /proposals/{id}/accept:
+    post:
+      operationId: acceptProposal
+      tags: [proposals]
+      summary: Accept a proposal with commission (admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommissionInput"
+      responses:
+        "200":
+          description: Accepted proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+
+  /proposals/{id}/reject:
+    post:
+      operationId: rejectProposal
+      tags: [proposals]
+      summary: Reject a proposal (admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rejected proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+
+  /proposals/{id}/messages:
+    get:
+      operationId: listMessages
+      tags: [chat]
+      summary: Get chat messages for a proposal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
+    post:
+      operationId: sendMessage
+      tags: [chat]
+      summary: Send a chat message for a proposal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageInput"
+      responses:
+        "201":
+          description: Sent message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessage"
+
+  /checkout/simulate:
+    post:
+      operationId: simulateCheckout
+      tags: [checkout]
+      summary: Simulate Stripe checkout (marks item as sold)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutInput"
+      responses:
+        "200":
+          description: Checkout result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResult"
+
+  /financial/summary:
+    get:
+      operationId: getFinancialSummary
+      tags: [financial]
+      summary: Get monthly revenue, expenses and profit totals
+      responses:
+        "200":
+          description: Financial summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialSummary"
+
+  /financial/items:
+    get:
+      operationId: listFinancialItems
+      tags: [financial]
+      summary: Get per-item financial breakdown
+      responses:
+        "200":
+          description: Financial items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FinancialItem"
+
+  /cms:
+    get:
+      operationId: getCmsContent
+      tags: [cms]
+      summary: Get all CMS content blocks
+      responses:
+        "200":
+          description: CMS content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CmsContent"
+    patch:
+      operationId: updateCmsContent
+      tags: [cms]
+      summary: Update CMS content (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CmsContentUpdate"
+      responses:
+        "200":
+          description: Updated CMS content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CmsContent"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [success]
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthUser:
+      type: object
+      required: [id, email, role]
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        role:
+          type: string
+          enum: [admin, client]
+        name:
+          type: ["string", "null"]
+
+    Product:
+      type: object
+      required: [id, title, price, condition, inStock, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        price:
+          type: number
+        originalPrice:
+          type: ["number", "null"]
+        condition:
+          type: string
+          enum: [new_with_tags, like_new, used]
+        brand:
+          type: ["string", "null"]
+        color:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        inStock:
+          type: boolean
+        commissionType:
+          type: ["string", "null"]
+          enum: [percentage, fixed, null]
+        commissionValue:
+          type: ["number", "null"]
+        netProfit:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ProductInput:
+      type: object
+      required: [title, price, condition]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        originalPrice:
+          type: number
+        condition:
+          type: string
+          enum: [new_with_tags, like_new, used]
+        brand:
+          type: string
+        color:
+          type: string
+        category:
+          type: string
+        imageUrl:
+          type: string
+        commissionType:
+          type: string
+          enum: [percentage, fixed]
+        commissionValue:
+          type: number
+
+    ProductUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        originalPrice:
+          type: number
+        condition:
+          type: string
+          enum: [new_with_tags, like_new, used]
+        brand:
+          type: string
+        color:
+          type: string
+        category:
+          type: string
+        imageUrl:
+          type: string
+        inStock:
+          type: boolean
+        commissionType:
+          type: string
+          enum: [percentage, fixed]
+        commissionValue:
+          type: number
+
+    ProductSummary:
+      type: object
+      required: [total, inStock, sold, categories, totalValue]
+      properties:
+        total:
+          type: integer
+        inStock:
+          type: integer
+        sold:
+          type: integer
+        categories:
+          type: array
+          items:
+            type: object
+            required: [category, count]
+            properties:
+              category:
+                type: string
+              count:
+                type: integer
+        totalValue:
+          type: number
+
+    Proposal:
+      type: object
+      required: [id, itemName, category, desiredPayout, status, submitterEmail, createdAt]
+      properties:
+        id:
+          type: integer
+        itemName:
+          type: string
+        category:
+          type: string
+        desiredPayout:
+          type: number
+        imageUrl:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, accepted, rejected]
+        submitterEmail:
+          type: string
+        submitterName:
+          type: ["string", "null"]
+        commissionType:
+          type: ["string", "null"]
+          enum: [percentage, fixed, null]
+        commissionValue:
+          type: ["number", "null"]
+        netProfit:
+          type: ["number", "null"]
+        adminNotes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ProposalInput:
+      type: object
+      required: [itemName, category, desiredPayout, submitterEmail]
+      properties:
+        itemName:
+          type: string
+        category:
+          type: string
+        desiredPayout:
+          type: number
+        imageUrl:
+          type: string
+        submitterEmail:
+          type: string
+        submitterName:
+          type: string
+
+    CommissionInput:
+      type: object
+      required: [commissionType, commissionValue]
+      properties:
+        commissionType:
+          type: string
+          enum: [percentage, fixed]
+        commissionValue:
+          type: number
+        adminNotes:
+          type: string
+
+    ChatMessage:
+      type: object
+      required: [id, proposalId, senderRole, content, createdAt]
+      properties:
+        id:
+          type: integer
+        proposalId:
+          type: integer
+        senderRole:
+          type: string
+          enum: [admin, client]
+        senderName:
+          type: ["string", "null"]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ChatMessageInput:
+      type: object
+      required: [content, senderRole]
+      properties:
+        content:
+          type: string
+        senderRole:
+          type: string
+          enum: [admin, client]
+        senderName:
+          type: string
+
+    CheckoutInput:
+      type: object
+      required: [productId, cardNumber, expiryMonth, expiryYear, cvc, amountCents]
+      properties:
+        productId:
+          type: integer
+        cardNumber:
+          type: string
+        expiryMonth:
+          type: integer
+        expiryYear:
+          type: integer
+        cvc:
+          type: string
+        amountCents:
+          type: integer
+          description: Amount in cents (e.g. 1000 = €10.00)
+        buyerEmail:
+          type: string
+          format: email
+          description: Buyer email address — invoice will be sent here
+        buyerName:
+          type: string
+          description: Buyer display name for the invoice
+
+    CheckoutResult:
+      type: object
+      required: [success, transactionId, amountCents]
+      properties:
+        success:
+          type: boolean
+        transactionId:
+          type: string
+        amountCents:
+          type: integer
+        message:
+          type: string
+
+    FinancialSummary:
+      type: object
+      required: [totalRevenue, totalExpenses, totalProfit, monthlyData]
+      properties:
+        totalRevenue:
+          type: number
+        totalExpenses:
+          type: number
+        totalProfit:
+          type: number
+        monthlyData:
+          type: array
+          items:
+            type: object
+            required: [month, revenue, expenses, profit]
+            properties:
+              month:
+                type: string
+              revenue:
+                type: number
+              expenses:
+                type: number
+              profit:
+                type: number
+
+    FinancialItem:
+      type: object
+      required: [id, productTitle, salePrice, commissionType, commissionValue, netProfit, soldAt]
+      properties:
+        id:
+          type: integer
+        productTitle:
+          type: string
+        salePrice:
+          type: number
+        commissionType:
+          type: string
+        commissionValue:
+          type: number
+        netProfit:
+          type: number
+        soldAt:
+          type: string
+          format: date-time
+
+    CmsContent:
+      type: object
+      required: [heroHeadline, heroSubheadline, chiSiamoTitle, chiSiamoBody, founderName, socialLinks]
+      properties:
+        heroHeadline:
+          type: string
+        heroSubheadline:
+          type: string
+        chiSiamoTitle:
+          type: string
+        chiSiamoBody:
+          type: string
+        founderName:
+          type: string
+        socialLinks:
+          type: array
+          items:
+            type: object
+            required: [label, url, icon]
+            properties:
+              label:
+                type: string
+              url:
+                type: string
+              icon:
+                type: string
+
+    CmsContentUpdate:
+      type: object
+      properties:
+        heroHeadline:
+          type: string
+        heroSubheadline:
+          type: string
+        chiSiamoTitle:
+          type: string
+        chiSiamoBody:
+          type: string
+        founderName:
+          type: string
+        socialLinks:
+          type: array
+          items:
+            type: object
+            required: [label, url, icon]
+            properties:
+              label:
+                type: string
+              url:
+                type: string
+              icon:
+                type: string
